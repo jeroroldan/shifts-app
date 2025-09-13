@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
       clientName: body.clientName.trim(),
       reason: body.reason.trim(),
       desiredTime: body.desiredTime,
+      status: "pending",
       notes: body.notes?.trim(),
     })
 
