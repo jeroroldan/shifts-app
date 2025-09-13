@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const response: ApiResponse<Appointment> = {
       success: true,
-      data: updatedAppointment,
+      data: updatedAppointment === null ? undefined : updatedAppointment,
       message: "Turno actualizado exitosamente",
     }
 
