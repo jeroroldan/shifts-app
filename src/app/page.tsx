@@ -7,7 +7,8 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    router.push("/cliente")
+    // Siempre redirigir a /cliente, nunca a /admin automáticamente
+    router.replace("/cliente")
   }, [router])
 
   return (

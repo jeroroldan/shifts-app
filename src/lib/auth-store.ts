@@ -35,6 +35,8 @@ export const useAuthStore = create<AuthState>()(
           return true
         }
 
+        // Si no es admin, nunca guardar autenticación
+        set({ isAuthenticated: false, user: null })
         return false
       },
 
