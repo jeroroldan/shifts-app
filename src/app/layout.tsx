@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+  <ThemeProvider defaultTheme="system">
           <Suspense fallback={null}>
             {children}
             <Toaster />
