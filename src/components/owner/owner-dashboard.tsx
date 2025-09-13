@@ -343,8 +343,8 @@ export function OwnerDashboard() {
                     <div className="text-right">
                       <p className="font-medium">{appointment.desiredTime}</p>
                       <p className="text-sm text-muted-foreground">
-                        {appointment.desiredDate
-                          ? new Date(appointment.desiredDate).toLocaleDateString("es-ES")
+                        {appointment.desiredTime
+                          ? new Date(appointment.desiredTime).toLocaleDateString("es-ES")
                           : "Sin fecha"}
                       </p>
                     </div>
