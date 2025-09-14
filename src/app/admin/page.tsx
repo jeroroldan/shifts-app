@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header"
 import { Navigation } from "@/components/layout/navigation"
 import AppointmentList from "@/components/appointments/appointment-list"
 import AdminDashboard from "@/components/admin/admin-dashboard"
-import { ProtectedRoute } from "@/components/auth/protected-route"
+import ProtectedRoute from "@/components/auth/protected-route"
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("admin")

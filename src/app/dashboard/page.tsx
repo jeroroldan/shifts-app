@@ -3,7 +3,7 @@
 import { useState } from "react"
 import OwnerDashboard from "@/components/owner/owner-dashboard"
 import { Navigation } from "@/components/layout/navigation"
-import { ProtectedRoute } from "@/components/auth/protected-route"
+import ProtectedRoute from "@/components/auth/protected-route"
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")

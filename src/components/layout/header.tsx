@@ -2,18 +2,20 @@
 
 import { Calendar, LogOut, User2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAuthStore } from "@/lib/auth-store"
+import { useAuthUser } from "@/lib/auth-query"
 import { useRouter } from "next/navigation"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 
 
 export function Header() {
-  const { isAuthenticated, user, logout } = useAuthStore()
+  const { data: user } = useAuthUser()
   const router = useRouter()
 
   const handleLogout = () => {
-    logout()
-    router.push("/cliente")
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("auth-storage")
+    }
+    window.location.href = "/cliente"
   }
 
   return (
@@ -31,7 +33,7 @@ export function Header() {
               </p>
             </div>
           </div>
-          {isAuthenticated && user && (
+          {user ? (
             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
               <div className="flex items-center gap-1 sm:gap-2 bg-muted rounded-full px-2 py-1">
                 <User2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
@@ -50,8 +52,7 @@ export function Header() {
                 <span className="hidden sm:inline">Cerrar Sesión</span>
               </Button>
             </div>
-          )}
-          {!isAuthenticated && (
+          ) : (
             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end mt-2 sm:mt-0">
               <ThemeToggle />
             </div>

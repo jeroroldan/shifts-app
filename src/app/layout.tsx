@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme/theme-provider"
 import { Suspense } from "react"
 import { WhatsAppFloat } from "@/components/ui/whatsapp-float"
+import { ReactQueryProvider } from "@/components/providers/react-query-provider"
 import "./globals.css"
 
 const inter = Inter({
@@ -34,13 +35,15 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
-  <ThemeProvider defaultTheme="system">
-          <Suspense fallback={null}>
-            {children}
-            <Toaster />
-            <WhatsAppFloat />
-          </Suspense>
-        </ThemeProvider>
+        <ReactQueryProvider>
+          <ThemeProvider defaultTheme="system">
+            <Suspense fallback={null}>
+              {children}
+              <Toaster />
+              <WhatsAppFloat />
+            </Suspense>
+          </ThemeProvider>
+        </ReactQueryProvider>
         <Analytics />
       </body>
     </html>

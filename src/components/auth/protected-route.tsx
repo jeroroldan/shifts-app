@@ -4,23 +4,23 @@ import type React from "react"
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuthStore } from "@/lib/auth-store"
+import { useAuthUser } from "@/lib/auth-query"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuthStore()
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { data: user, isLoading } = useAuthUser()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !user) {
       router.push("/login")
     }
-  }, [isAuthenticated, router])
+  }, [user, isLoading, router])
 
-  if (!isAuthenticated) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -31,5 +31,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
+  if (!user) {
+    return null
+  }
+
   return <>{children}</>
 }
+
+export default ProtectedRoute

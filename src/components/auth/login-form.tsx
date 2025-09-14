@@ -9,11 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuthStore } from "@/lib/auth-store"
+import { useLoginMutation } from "@/lib/auth-query"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
-
-const bcrypt = require("bcryptjs");
-bcrypt.hash("admin123", 10).then(console.log);
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -22,27 +19,28 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const { login } = useAuthStore()
+
   const router = useRouter()
+  const loginMutation = useLoginMutation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
-
-    try {
-      const success = await login(email, password)
-
-      if (success) {
-        router.push("/dashboard")
-      } else {
-        setError("Email o contraseña incorrectos")
+    loginMutation.mutate(
+      { email, password },
+      {
+        onSuccess: () => {
+          router.push("/dashboard")
+        },
+        onError: (err: any) => {
+          setError(err.message || "Email o contraseña incorrectos")
+        },
+        onSettled: () => {
+          setIsLoading(false)
+        },
       }
-    } catch (error) {
-      setError("Error al iniciar sesión. Intenta nuevamente.")
-    } finally {
-      setIsLoading(false)
-    }
+    )
   }
 
   return (
