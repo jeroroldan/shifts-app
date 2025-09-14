@@ -1,8 +1,7 @@
 "use client"
 
-import type React from "react"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,15 +13,23 @@ import { useToast } from "@/hooks/use-toast"
 
 interface AppointmentFormProps {
   onSuccess?: () => void
+  selectedDate?: string | null
+  selectedTime?: string | null
 }
 
-export function AppointmentForm({ onSuccess }: AppointmentFormProps) {
+export function AppointmentForm({ onSuccess, selectedDate, selectedTime }: AppointmentFormProps) {
   const [formData, setFormData] = useState({
     clientName: "",
     reason: "",
     desiredTime: "",
     notes: "",
   })
+  // Autocompletar desiredTime si viene de props
+  React.useEffect(() => {
+    if (selectedTime && formData.desiredTime !== selectedTime) {
+      setFormData((prev) => ({ ...prev, desiredTime: selectedTime }))
+    }
+  }, [selectedTime])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 

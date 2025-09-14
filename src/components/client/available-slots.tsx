@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,9 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, Calendar, CheckCircle, ArrowRight } from "lucide-react"
 import { appointmentStore } from "@/lib/appointment-store"
 
-export function AvailableSlots() {
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+
+interface AvailableSlotsProps {
+  setActiveTab?: (tab: string) => void
+  selectedDate: string | null
+  setSelectedDate: (date: string | null) => void
+  selectedTime: string | null
+  setSelectedTime: (time: string | null) => void
+}
+
+export function AvailableSlots({ setActiveTab, selectedDate, setSelectedDate, selectedTime, setSelectedTime }: AvailableSlotsProps) {
   const appointments = appointmentStore.getAll()
 
   const availableDates = useMemo(() => {
@@ -82,7 +89,11 @@ export function AvailableSlots() {
     const event = new CustomEvent("openBookingForm", {
       detail: { date: selectedDate, time: selectedTime },
     })
-    window.dispatchEvent(event)
+    window.dispatchEvent(event);
+
+    if (setActiveTab) {
+      setActiveTab("book")
+    }
   }
 
   return (

@@ -12,6 +12,8 @@ import Link from "next/link"
 export default function ClientPage() {
   const [activeTab, setActiveTab] = useState("available")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
   const handleFormSuccess = () => {
     setRefreshKey((prev) => prev + 1)
@@ -26,9 +28,18 @@ export default function ClientPage() {
   const renderContent = () => {
     switch (activeTab) {
       case "available":
-        return <AvailableSlots key={refreshKey} />
+        return (
+          <AvailableSlots
+            key={refreshKey}
+            setActiveTab={setActiveTab}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            selectedTime={selectedTime}
+            setSelectedTime={setSelectedTime}
+          />
+        )
       case "book":
-        return <AppointmentForm onSuccess={handleFormSuccess} />
+        return <AppointmentForm onSuccess={handleFormSuccess} selectedDate={selectedDate} selectedTime={selectedTime} />
       case "my-appointments":
         return <MyAppointments key={refreshKey} />
       default:
