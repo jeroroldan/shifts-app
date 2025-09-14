@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { appointmentStore } from "@/lib/appointment-store"
+import { getStats } from "@/lib/appointments-supabase"
 import type { ApiResponse } from "@/types/api"
 import type { AppointmentStats } from "@/types/appointment"
 
 // GET /api/appointments/stats - Obtener estadísticas de turnos
 export async function GET(request: NextRequest) {
   try {
-    const stats = appointmentStore.getStats()
+    const stats = await getStats()
 
     const response: ApiResponse<AppointmentStats> = {
       success: true,

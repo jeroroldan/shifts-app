@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { appointmentStore } from "@/lib/appointment-store"
+import { getAppointments, createAppointment } from "@/lib/appointments-supabase"
 import type { CreateAppointmentDTO, AppointmentQueryParams, ApiResponse, PaginatedResponse } from "@/types/api"
 import type { Appointment } from "@/types/appointment"
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       limit: Number.parseInt(searchParams.get("limit") || "10"),
     }
 
-    let appointments = appointmentStore.getAll()
+    let appointments = await getAppointments()
 
     // Filtrar por estado
     if (params.status && params.status !== "all") {
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const newAppointment = appointmentStore.create({
+    const newAppointment = await createAppointment({
       clientName: body.clientName.trim(),
       reason: body.reason.trim(),
       desiredTime: body.desiredTime,

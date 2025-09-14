@@ -1,19 +1,30 @@
 "use client"
 
-
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { supabase } from "@/lib/supabase-client"
-import bcrypt from "bcryptjs"
+import type { User } from "@supabase/supabase-js"
 
 interface AuthState {
   isAuthenticated: boolean
   user: { email: string; name: string } | null
   login: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
+  setAuthenticated: (isAuth: boolean) => void
+  setUser: (user: { email: string; name: string } | null) => void
 }
 
+// Fetch user profile from public.users
+async function fetchUserProfile(userId: string): Promise<{ name: string } | null> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("name")
+    .eq("id", userId)
+    .single()
 
+  if (error || !data) return null
+  return { name: data.name || "" }
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -21,38 +32,41 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
 
-      login: async (email: string, password: string) => {
-        // Buscar usuario en Supabase
-        const { data, error } = await supabase
-          .from("users")
-          .select("id, email, password_hash, name")
-          .eq("email", email)
-          .single();
+      setAuthenticated: (isAuth) => set({ isAuthenticated: isAuth }),
 
-        if (error || !data) {
-          set({ isAuthenticated: false, user: null });
-          return false;
+      setUser: (user) => set({ user }),
+
+      login: async (email: string, password: string) => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (error) {
+          set({ isAuthenticated: false, user: null })
+          return false
         }
 
-        // Validar password con bcrypt
-        const isValid = await bcrypt.compare(password, data.password_hash);
-        if (isValid) {
+        if (data.user) {
+          const profile = await fetchUserProfile(data.user.id)
           set({
             isAuthenticated: true,
-            user: { email: data.email, name: data.name || "" },
-          });
-          return true;
-        } else {
-          set({ isAuthenticated: false, user: null });
-          return false;
+            user: { 
+              email: data.user.email || email, 
+              name: profile?.name || "" 
+            },
+          })
+          return true
         }
+
+        return false
       },
 
-      logout: () => {
-        set({
-          isAuthenticated: false,
-          user: null,
-        })
+      logout: async () => {
+        const { error } = await supabase.auth.signOut()
+        if (!error) {
+          set({ isAuthenticated: false, user: null })
+        }
       },
     }),
     {
@@ -64,3 +78,5 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+export { fetchUserProfile }

@@ -7,20 +7,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar, Clock, User, Search, FileText } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { apiClient } from "@/lib/api-client"
+import type { Appointment } from "@/types/appointment"
+import { useQuery } from '@tanstack/react-query'
 
 export function MyAppointments() {
   const [searchName, setSearchName] = useState("")
-  const [searchResults, setSearchResults] = useState<any[]>([])
   const [hasSearched, setHasSearched] = useState(false)
+
+  const { data: searchResults = [], isLoading } = useQuery({
+    queryKey: ['appointments', 'search', searchName],
+    queryFn: async () => {
+      if (!searchName.trim()) return []
+      const response = await apiClient.getAppointments({ search: searchName, page: 1, limit: 50 })
+      return response.data!.data
+    },
+    enabled: hasSearched && searchName.trim().length > 0,
+    staleTime: 5 * 60 * 1000,
+  })
 
   const handleSearch = () => {
     if (!searchName.trim()) return
-
-    const appointments = appointmentStore.getAll()
-    const results = appointments.filter((apt) => apt.clientName.toLowerCase().includes(searchName.toLowerCase()))
-
-    setSearchResults(results)
     setHasSearched(true)
   }
 
@@ -79,13 +86,19 @@ export function MyAppointments() {
       {/* Search Results */}
       {hasSearched && (
         <div className="space-y-4">
-          {searchResults.length > 0 ? (
+          {isLoading ? (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-muted-foreground">Buscando turnos...</p>
+              </CardContent>
+            </Card>
+          ) : searchResults.length > 0 ? (
             <>
               <h3 className="text-lg font-semibold">
-                {searchResults.length} turno{searchResults.length !== 1 ? "s" : ""} encontrado
-                {searchResults.length !== 1 ? "s" : ""}
+                {`${searchResults.length} ${searchResults.length === 1 ? 'turno encontrado' : 'turnos encontrados'}`}
               </h3>
-              {searchResults.map((appointment) => (
+              {searchResults.map((appointment: Appointment) => (
                 <Card key={appointment.id}>
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between">

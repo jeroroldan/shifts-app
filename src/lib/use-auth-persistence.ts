@@ -1,34 +1,49 @@
 import { useEffect } from "react"
-import { useQueryClient } from "@tanstack/react-query"
-
-const AUTH_KEY = ["auth", "user"]
+import { supabase } from "@/lib/supabase-client"
+import { useAuthStore, fetchUserProfile } from "@/lib/auth-store"
 
 export function useAuthPersistence() {
-  const queryClient = useQueryClient()
+  const setAuthenticated = useAuthStore((state) => state.setAuthenticated)
+  const setUser = useAuthStore((state) => state.setUser)
 
-  // Guardar usuario en localStorage cuando cambia
   useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event?.query?.queryKey?.toString() === AUTH_KEY.toString()) {
-        const user = event.query.state.data
-        if (user) {
-          window.localStorage.setItem("auth-user", JSON.stringify(user))
-        } else {
-          window.localStorage.removeItem("auth-user")
+    // Hidratar estado inicial desde Supabase session
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id)
+        setAuthenticated(true)
+        setUser({
+          email: session.user.email || "",
+          name: profile?.name || ""
+        })
+      } else {
+        setAuthenticated(false)
+        setUser(null)
+      }
+    }
+
+    initAuth()
+
+    // Listener para cambios de auth
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id)
+          setAuthenticated(true)
+          setUser({
+            email: session.user.email || "",
+            name: profile?.name || ""
+          })
         }
+      } else if (event === 'SIGNED_OUT') {
+        setAuthenticated(false)
+        setUser(null)
       }
     })
-    return () => unsubscribe()
-  }, [queryClient])
 
-  // Hidratar usuario desde localStorage al cargar
-  useEffect(() => {
-    const userStr = window.localStorage.getItem("auth-user")
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        queryClient.setQueryData(AUTH_KEY, user)
-      } catch {}
-    }
-  }, [queryClient])
+    return () => subscription.unsubscribe()
+  }, [setAuthenticated, setUser])
 }

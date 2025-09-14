@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { appointmentStore } from "@/lib/appointment-store"
+import { getAppointmentById, updateAppointment, deleteAppointment } from "@/lib/appointments-supabase"
 import type { UpdateAppointmentDTO, ApiResponse } from "@/types/api"
 import type { Appointment } from "@/types/appointment"
 
 // GET /api/appointments/[id] - Obtener turno específico
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const appointment = appointmentStore.getById(params.id)
+    const appointment = await getAppointmentById(params.id)
 
     if (!appointment) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body: UpdateAppointmentDTO = await request.json()
 
     // Verificar que el turno existe
-    const existingAppointment = appointmentStore.getById(params.id)
+    const existingAppointment = await getAppointmentById(params.id)
     if (!existingAppointment) {
       return NextResponse.json(
         {
@@ -55,15 +55,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       )
     }
 
-    // Validar fecha si se proporciona
+    // Validar tiempo si se proporciona (HH:MM format)
     if (body.desiredTime) {
-      const desiredDate = new Date(body.desiredTime)
-      if (isNaN(desiredDate.getTime())) {
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
+      if (!timeRegex.test(body.desiredTime)) {
         return NextResponse.json(
           {
             success: false,
-            error: "Formato de fecha inválido",
-            message: "desiredTime debe ser una fecha válida",
+            error: "Formato de tiempo inválido",
+            message: "desiredTime debe ser en formato HH:MM (ej. 14:30)",
           },
           { status: 400 },
         )
@@ -78,11 +78,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (body.status) updateData.status = body.status
     if (body.notes !== undefined) updateData.notes = body.notes?.trim()
 
-    const updatedAppointment = appointmentStore.update(params.id, updateData)
+    const updatedAppointment = await updateAppointment(params.id, updateData)
+
+    if (!updatedAppointment) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error al actualizar turno",
+          message: "No se pudo actualizar el turno",
+        },
+        { status: 500 },
+      )
+    }
 
     const response: ApiResponse<Appointment> = {
       success: true,
-      data: updatedAppointment === null ? undefined : updatedAppointment,
+      data: updatedAppointment,
       message: "Turno actualizado exitosamente",
     }
 
@@ -102,7 +113,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 // DELETE /api/appointments/[id] - Eliminar turno
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const existingAppointment = appointmentStore.getById(params.id)
+    const existingAppointment = await getAppointmentById(params.id)
     if (!existingAppointment) {
       return NextResponse.json(
         {
@@ -114,7 +125,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       )
     }
 
-    appointmentStore.delete(params.id)
+    const success = await deleteAppointment(params.id)
+
+    if (!success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error al eliminar turno",
+          message: "No se pudo eliminar el turno",
+        },
+        { status: 500 },
+      )
+    }
 
     const response: ApiResponse<null> = {
       success: true,

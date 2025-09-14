@@ -6,19 +6,21 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Clock, Calendar, CheckCircle, ArrowRight } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { useAppointmentStore } from "@/lib/appointment-store"
+import type { AppointmentState } from "@/lib/appointment-store"
+import type { Appointment } from "@/types/appointment"
 
 
 interface AvailableSlotsProps {
-  setActiveTab?: (tab: string) => void
-  selectedDate: string | null
-  setSelectedDate: (date: string | null) => void
-  selectedTime: string | null
-  setSelectedTime: (time: string | null) => void
 }
 
-export function AvailableSlots({ setActiveTab, selectedDate, setSelectedDate, selectedTime, setSelectedTime }: AvailableSlotsProps) {
-  const appointments = appointmentStore.getAll()
+export function AvailableSlots({}: AvailableSlotsProps) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const appointments = useAppointmentStore((state: AppointmentState) => {
+    console.log('Appointment store state accessed:', state);
+    return state.getAll()
+  })
 
   const availableDates = useMemo(() => {
     const dates = []
@@ -60,7 +62,7 @@ export function AvailableSlots({ setActiveTab, selectedDate, setSelectedDate, se
         const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
 
         const isBooked = appointments.some(
-          (apt) =>
+          (apt: Appointment) =>
             apt.desiredTime === timeString &&
             apt.createdAt.toDateString() === new Date(selectedDate).toDateString() &&
             apt.status !== "cancelled",
@@ -90,10 +92,6 @@ export function AvailableSlots({ setActiveTab, selectedDate, setSelectedDate, se
       detail: { date: selectedDate, time: selectedTime },
     })
     window.dispatchEvent(event);
-
-    if (setActiveTab) {
-      setActiveTab("book")
-    }
   }
 
   return (

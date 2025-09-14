@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { AppointmentForm } from "@/components/forms/appointment-form"
 import { AvailableSlots } from "@/components/client/available-slots"
@@ -12,12 +12,21 @@ import Link from "next/link"
 export default function ClientPage() {
   const [activeTab, setActiveTab] = useState("available")
   const [refreshKey, setRefreshKey] = useState(0)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
   const handleFormSuccess = () => {
     setRefreshKey((prev) => prev + 1)
   }
+
+  useEffect(() => {
+    const handleOpenBooking = (e: CustomEvent) => {
+      setActiveTab("book")
+    }
+
+    const eventHandler = (e: Event) => handleOpenBooking(e as CustomEvent)
+
+    window.addEventListener("openBookingForm", eventHandler)
+    return () => window.removeEventListener("openBookingForm", eventHandler)
+  }, [])
 
   const tabs = [
     { id: "available", label: "Horarios Disponibles", icon: Clock },
@@ -31,15 +40,10 @@ export default function ClientPage() {
         return (
           <AvailableSlots
             key={refreshKey}
-            setActiveTab={setActiveTab}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            selectedTime={selectedTime}
-            setSelectedTime={setSelectedTime}
           />
         )
       case "book":
-        return <AppointmentForm onSuccess={handleFormSuccess} selectedDate={selectedDate} selectedTime={selectedTime} />
+        return <AppointmentForm onSuccess={handleFormSuccess} />
       case "my-appointments":
         return <MyAppointments key={refreshKey} />
       default:

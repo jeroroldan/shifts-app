@@ -1,83 +1,66 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-} from "recharts"
-import { Calendar, Users, CheckCircle, AlertCircle, XCircle, TrendingUp, Activity, Timer } from "lucide-react"
-import { getAppointments } from "@/lib/appointments-supabase"
+import { Calendar, Users, CheckCircle, AlertCircle, XCircle, TrendingUp, Timer } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import type { Appointment, AppointmentStats } from "@/types/appointment"
 
 export default function AdminDashboard() {
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const appointmentsQuery = useQuery({
+    queryKey: ['appointments'],
+    queryFn: async () => {
+      const response = await apiClient.getAppointments({ page: 1, limit: 100 })
+      if (!response.success) throw new Error(response.message || 'Error fetching appointments')
+      return response.data?.data ?? []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
-  useEffect(() => {
-    setLoading(true)
-    getAppointments()
-      .then((data) => {
-        setAppointments(data)
-        setError(null)
-      })
-      .catch(() => setError("Error al cargar turnos"))
-      .finally(() => setLoading(false))
-  }, [])
+  const statsQuery = useQuery({
+    queryKey: ['stats'],
+    queryFn: async () => {
+      const response = await apiClient.getStats()
+      if (!response.success) throw new Error(response.message || 'Error fetching stats')
+      return response.data
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
-  // Calcular stats localmente
-  const stats = useMemo(() => {
-    const today = new Date()
-    const todayStr = today.toDateString()
-    let totalToday = 0, pending = 0, completed = 0
-    let totalWaitTime = 0, waitCount = 0
-    appointments.forEach((apt) => {
-      const createdAt = apt.createdAt ? (typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt) : null
-      if (createdAt && typeof createdAt.toDateString === "function" && createdAt.toDateString() === todayStr) {
-        totalToday++
-        if (apt.status === "pending") pending++
-        if (apt.status === "completed") completed++
-      }
-      // Calcular tiempo de espera promedio si hay datos
-      if (apt.status === "completed" && apt.createdAt && apt.completedAt) {
-        const start = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
-        const end = typeof apt.completedAt === "string" ? new Date(apt.completedAt) : apt.completedAt
-        const diff = (end.getTime() - start.getTime()) / 60000 // minutos
-        if (!isNaN(diff)) {
-          totalWaitTime += diff
-          waitCount++
-        }
-      }
-    })
-    const averageWaitTime = waitCount > 0 ? Math.round(totalWaitTime / waitCount) : 0
-    return { totalToday, pending, completed, averageWaitTime }
-  }, [appointments])
+  const appointments = appointmentsQuery.data ?? []
+  const stats = statsQuery.data
+
 
   // Calculate additional metrics
   const metrics = useMemo(() => {
+    if (!appointments.length) return {
+      total: 0,
+      weekly: 0,
+      monthly: 0,
+      statusCounts: {} as Record<string, number>,
+      hourlyData: [],
+      weeklyTrend: [],
+      completionRate: 0,
+    }
+
     const today = new Date()
     const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
+    const parseDate = (dateValue: Date | string): Date => {
+      if (dateValue instanceof Date) return dateValue
+      return new Date(dateValue)
+    }
+
     const weeklyAppointments = appointments.filter((apt) => {
-      const createdAt = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
-      return createdAt >= thisWeek
+      const createdAt = parseDate(apt.createdAt)
+      return !isNaN(createdAt.getTime()) && createdAt >= thisWeek
     })
     const monthlyAppointments = appointments.filter((apt) => {
-      const createdAt = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
-      return createdAt >= thisMonth
+      const createdAt = parseDate(apt.createdAt)
+      return !isNaN(createdAt.getTime()) && createdAt >= thisMonth
     })
 
     // Status distribution
@@ -94,8 +77,9 @@ export default function AdminDashboard() {
       const hour = i + 8 // 8 AM to 6 PM
       const count = appointments.filter((apt) => {
         if (!apt.desiredTime) return false
-        const aptHour = Number.parseInt(apt.desiredTime.split(":")[0])
-        return aptHour === hour
+        const timeParts = apt.desiredTime.split(":")
+        const aptHour = Number.parseInt(timeParts[0])
+        return !isNaN(aptHour) && aptHour === hour
       }).length
       return {
         hour: `${hour}:00`,
@@ -107,8 +91,8 @@ export default function AdminDashboard() {
     const weeklyTrend = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(today.getTime() - (6 - i) * 24 * 60 * 60 * 1000)
       const count = appointments.filter((apt) => {
-        const createdAt = apt.createdAt ? (typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt) : null
-        return createdAt && typeof createdAt.toDateString === "function" && createdAt.toDateString() === date.toDateString()
+        const createdAt = parseDate(apt.createdAt)
+        return !isNaN(createdAt.getTime()) && createdAt.toDateString() === date.toDateString()
       }).length
       return {
         date: date.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }),
@@ -139,14 +123,19 @@ export default function AdminDashboard() {
   const pieData = Object.entries(metrics.statusCounts).map(([status, count]) => ({
     name: status === "pending" ? "Pendientes" : status === "completed" ? "Completados" : "Cancelados",
     value: count,
-    color: statusColors[status as keyof typeof statusColors],
+    color: statusColors[status as keyof typeof statusColors] || "#6b7280",
   }))
 
-  if (loading) {
+  if (appointmentsQuery.isLoading || statsQuery.isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Cargando datos...</div>
   }
-  if (error) {
-    return <div className="p-8 text-center text-destructive">{error}</div>
+
+  if (appointmentsQuery.error || statsQuery.error) {
+    return (
+      <div className="p-8 text-center text-destructive">
+        Error cargando datos: {(appointmentsQuery.error || statsQuery.error)?.message || 'Error desconocido'}
+      </div>
+    )
   }
 
   return (
@@ -165,9 +154,9 @@ export default function AdminDashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalToday}</div>
+            <div className="text-2xl font-bold">{stats?.totalToday ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.pending} pendientes, {stats.completed} completados
+              {stats?.pending ?? 0} pendientes, {stats?.completed ?? 0} completados
             </p>
           </CardContent>
         </Card>
@@ -189,7 +178,7 @@ export default function AdminDashboard() {
             <Timer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.averageWaitTime}min</div>
+            <div className="text-2xl font-bold">{Math.round(stats?.averageWaitTime ?? 0)}min</div>
             <p className="text-xs text-muted-foreground">Tiempo de espera promedio</p>
           </CardContent>
         </Card>

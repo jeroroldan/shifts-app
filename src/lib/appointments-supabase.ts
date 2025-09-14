@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase-client"
-import type { Appointment } from "@/types/appointment"
+import type { Appointment, AppointmentStats } from "@/types/appointment"
 
 export async function getAppointments(): Promise<Appointment[]> {
   const { data, error } = await supabase
@@ -47,4 +47,35 @@ export async function deleteAppointment(id: string): Promise<boolean> {
     .delete()
     .eq("id", id)
   return !error
+}
+
+export async function getStats(): Promise<AppointmentStats> {
+  const appointments = await getAppointments()
+  const total = appointments.length
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const totalToday = appointments.filter(apt => new Date(apt.createdAt) >= today).length
+  const pending = appointments.filter(apt => apt.status === 'pending').length
+  const completed = appointments.filter(apt => apt.status === 'completed').length
+  const cancelled = appointments.filter(apt => apt.status === 'cancelled').length
+
+  const averageWaitTime = total > 0 ? appointments.reduce((sum, apt) => {
+    if (!apt.desiredTime) return sum
+    const [hour, minute] = apt.desiredTime.split(':').map(Number)
+    if (isNaN(hour) || isNaN(minute)) return sum
+    const desiredDate = new Date(apt.createdAt)
+    desiredDate.setHours(hour, minute, 0, 0)
+    const waitMs = desiredDate.getTime() - apt.createdAt.getTime()
+    return sum + Math.max(0, waitMs) // Ensure non-negative
+  }, 0) / total / (1000 * 60) : 0 // minutes
+
+  return {
+    total,
+    totalToday,
+    completed,
+    pending,
+    cancelled,
+    byStatus: { pending, completed, cancelled },
+    averageWaitTime: Math.round(averageWaitTime)
+  }
 }

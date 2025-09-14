@@ -1,86 +1,89 @@
 "use client"
 
-
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, User, FileText, Calendar } from "lucide-react"
-import { createAppointment } from "@/lib/appointments-supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from "@/lib/api-client"
+import type { CreateAppointmentDTO, ApiResponse } from "@/types/api"
+import type { Appointment } from "@/types/appointment"
 
 interface AppointmentFormProps {
   onSuccess?: () => void
-  selectedDate?: string | null
-  selectedTime?: string | null
 }
 
-export function AppointmentForm({ onSuccess, selectedDate, selectedTime }: AppointmentFormProps) {
+export function AppointmentForm({ onSuccess }: AppointmentFormProps) {
   const [formData, setFormData] = useState({
     clientName: "",
     reason: "",
     desiredTime: "",
     notes: "",
+    selectedDate: "",
   })
-  // Autocompletar desiredTime si viene de props
-  React.useEffect(() => {
-    if (selectedTime && formData.desiredTime !== selectedTime) {
-      setFormData((prev) => ({ ...prev, desiredTime: selectedTime }))
-    }
-  }, [selectedTime])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+  const queryClient = useQueryClient()
 
-    try {
-      // Validate form
-      if (!formData.clientName.trim() || !formData.reason.trim() || !formData.desiredTime) {
-        toast({
-          title: "Error de validación",
-          description: "Por favor complete todos los campos obligatorios.",
-          variant: "destructive",
+  // Load selected date and time from sessionStorage on mount
+  useEffect(() => {
+    const storedDate = sessionStorage.getItem("selectedDate")
+    const storedTime = sessionStorage.getItem("selectedTime")
+
+    if (storedTime && formData.desiredTime !== storedTime) {
+      setFormData((prev) => ({ ...prev, desiredTime: storedTime }))
+    }
+
+    if (storedDate) {
+      setFormData((prev) => ({ ...prev, selectedDate: storedDate }))
+    }
+  }, [])
+
+  const createMutation = useMutation<ApiResponse<Appointment>, Error, CreateAppointmentDTO>({
+    mutationFn: (appointmentData) => apiClient.createAppointment(appointmentData),
+    onSuccess: (response, variables) => {
+      console.log('Response:', response);
+      if (response.success) {
+        // Reset form
+        setFormData({
+          clientName: "",
+          reason: "",
+          desiredTime: "",
+          notes: "",
+          selectedDate: "",
         })
-        return
+
+        toast({
+          title: "Turno reservado exitosamente",
+          description: `Turno reservado para ${variables.clientName} a las ${variables.desiredTime}`,
+        })
+
+        // Clear sessionStorage after successful booking
+        sessionStorage.removeItem("selectedDate")
+        sessionStorage.removeItem("selectedTime")
+
+        queryClient.invalidateQueries({ queryKey: ['appointments'] })
+
+        onSuccess?.()
+        setIsSubmitting(false)
+      } else {
+        throw new Error(response.message || 'Error creating appointment')
       }
-
-      // Create appointment
-      await createAppointment({
-        clientName: formData.clientName.trim(),
-        reason: formData.reason.trim(),
-        desiredTime: formData.desiredTime,
-        status: "pending",
-        notes: formData.notes.trim() || undefined,
-      })
-
-      // Reset form
-      setFormData({
-        clientName: "",
-        reason: "",
-        desiredTime: "",
-        notes: "",
-      })
-
-      toast({
-        title: "Turno reservado exitosamente",
-        description: `Turno reservado para ${formData.clientName} a las ${formData.desiredTime}`,
-      })
-
-      onSuccess?.()
-    } catch (error) {
+    },
+    onError: (error) => {
       toast({
         title: "Error al registrar turno",
         description: "Ocurrió un error inesperado. Intente nuevamente.",
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
-    }
-  }
+    },
+  })
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -93,6 +96,36 @@ export function AppointmentForm({ onSuccess, selectedDate, selectedTime }: Appoi
       const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
       timeOptions.push(timeString)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    // Validate form
+    if (!formData.clientName.trim() || !formData.reason.trim() || !formData.desiredTime) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor complete todos los campos obligatorios.",
+        variant: "destructive",
+      })
+      setIsSubmitting(false)
+      return
+    }
+
+    const submissionData: CreateAppointmentDTO = {
+      clientName: formData.clientName.trim(),
+      reason: formData.reason.trim(),
+      desiredTime: formData.desiredTime,
+      notes: formData.notes.trim() || undefined,
+    }
+
+    // Combine selectedDate and desiredTime if available
+    if (formData.selectedDate) {
+      submissionData.desiredTime = `${formData.selectedDate}T${formData.desiredTime}:00`;
+    }
+
+    createMutation.mutate(submissionData)
   }
 
   return (
@@ -179,8 +212,8 @@ export function AppointmentForm({ onSuccess, selectedDate, selectedTime }: Appoi
 
           {/* Submit Button */}
           <div className="pt-4">
-            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? "Registrando..." : "Registrar Turno"}
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || createMutation.isPending}>
+              {isSubmitting || createMutation.isPending ? "Registrando..." : "Registrar Turno"}
             </Button>
           </div>
         </form>
