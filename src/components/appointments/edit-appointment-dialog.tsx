@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Clock, User, FileText, Trash2 } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { updateAppointment, deleteAppointment } from "@/lib/appointments-supabase"
 import { useToast } from "@/hooks/use-toast"
 import type { Appointment } from "@/types/appointment"
 
@@ -94,14 +94,12 @@ export function EditAppointmentDialog({ appointment, open, onOpenChange, onSucce
         updates.completedAt = new Date()
       }
 
-      const updatedAppointment = appointmentStore.update(appointment.id, updates)
-
+      const updatedAppointment = await updateAppointment(appointment.id, updates)
       if (updatedAppointment) {
         toast({
           title: "Turno actualizado exitosamente",
           description: `Los datos de ${updatedAppointment.clientName} han sido actualizados.`,
         })
-
         onOpenChange(false)
         onSuccess?.()
       } else {
@@ -122,14 +120,12 @@ export function EditAppointmentDialog({ appointment, open, onOpenChange, onSucce
     if (!appointment) return
 
     try {
-      const success = appointmentStore.delete(appointment.id)
-
+      const success = await deleteAppointment(appointment.id)
       if (success) {
         toast({
           title: "Turno eliminado",
           description: `El turno de ${appointment.clientName} ha sido eliminado.`,
         })
-
         setShowDeleteDialog(false)
         onOpenChange(false)
         onSuccess?.()

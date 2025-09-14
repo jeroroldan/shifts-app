@@ -1,26 +1,41 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Clock, User, FileText, Search, Filter, Calendar, CheckCircle, XCircle, AlertCircle, Edit } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { getAppointments } from "@/lib/appointments-supabase"
 import { EditAppointmentDialog } from "./edit-appointment-dialog"
 import type { Appointment, SortOption, FilterOption } from "@/types/appointment"
 import { cn } from "@/lib/utils"
 
-export function AppointmentList() {
+export default function AppointmentList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState<SortOption>("time")
   const [filterBy, setFilterBy] = useState<FilterOption>("all")
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const appointments = appointmentStore.getAll()
+  // Cargar turnos desde Supabase
+  useEffect(() => {
+    setLoading(true)
+    getAppointments()
+      .then((data) => {
+        setAppointments(data)
+        setError(null)
+      })
+      .catch((err) => {
+        setError("Error al cargar turnos")
+      })
+      .finally(() => setLoading(false))
+  }, [refreshKey])
 
   const filteredAndSortedAppointments = useMemo(() => {
     let filtered = appointments
@@ -51,7 +66,10 @@ export function AppointmentList() {
         case "status":
           return a.status.localeCompare(b.status)
         case "created":
-          return b.createdAt.getTime() - a.createdAt.getTime()
+          // createdAt puede ser string (de Supabase) o Date
+          const aDate = typeof a.createdAt === "string" ? new Date(a.createdAt) : a.createdAt
+          const bDate = typeof b.createdAt === "string" ? new Date(b.createdAt) : b.createdAt
+          return bDate.getTime() - aDate.getTime()
         default:
           return 0
       }
@@ -59,6 +77,21 @@ export function AppointmentList() {
 
     return filtered
   }, [appointments, searchTerm, sortBy, filterBy, refreshKey])
+
+  if (loading) {
+    return (
+      <div className="min-h-[200px] flex items-center justify-center">
+        <span className="text-muted-foreground">Cargando turnos...</span>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="min-h-[200px] flex items-center justify-center">
+        <span className="text-red-500">{error}</span>
+      </div>
+    )
+  }
 
   const handleEdit = (appointment: Appointment) => {
     setEditingAppointment(appointment)
@@ -102,19 +135,25 @@ export function AppointmentList() {
     }
   }
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-ES", {
+  const formatDate = (date: Date | string | undefined | null) => {
+    if (!date) return "-"
+    const d = typeof date === "string" ? new Date(date) : date
+    if (!d || typeof d.toLocaleDateString !== "function") return "-"
+    return d.toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     })
   }
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("es-ES", {
+  const formatTime = (date: Date | string | undefined | null) => {
+    if (!date) return "-";
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) return "-";
+    return d.toLocaleTimeString("es-ES", {
       hour: "2-digit",
       minute: "2-digit",
-    })
+    });
   }
 
   return (

@@ -1,7 +1,10 @@
 "use client"
 
+
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { supabase } from "@/lib/supabase-client"
+import bcrypt from "bcryptjs"
 
 interface AuthState {
   isAuthenticated: boolean
@@ -10,12 +13,7 @@ interface AuthState {
   logout: () => void
 }
 
-// Credenciales de prueba para el dueño
-const OWNER_CREDENTIALS = {
-  email: "dueno@turnos.com",
-  password: "admin123",
-  name: "Dueño del Local",
-}
+
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -24,20 +22,30 @@ export const useAuthStore = create<AuthState>()(
       user: null,
 
       login: async (email: string, password: string) => {
-        // Simular delay de autenticación
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Buscar usuario en Supabase
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, email, password_hash, name")
+          .eq("email", email)
+          .single();
 
-        if (email === OWNER_CREDENTIALS.email && password === OWNER_CREDENTIALS.password) {
-          set({
-            isAuthenticated: true,
-            user: { email: OWNER_CREDENTIALS.email, name: OWNER_CREDENTIALS.name },
-          })
-          return true
+        if (error || !data) {
+          set({ isAuthenticated: false, user: null });
+          return false;
         }
 
-        // Si no es admin, nunca guardar autenticación
-        set({ isAuthenticated: false, user: null })
-        return false
+        // Validar password con bcrypt
+        const isValid = await bcrypt.compare(password, data.password_hash);
+        if (isValid) {
+          set({
+            isAuthenticated: true,
+            user: { email: data.email, name: data.name || "" },
+          });
+          return true;
+        } else {
+          set({ isAuthenticated: false, user: null });
+          return false;
+        }
       },
 
       logout: () => {

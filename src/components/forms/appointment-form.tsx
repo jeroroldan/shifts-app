@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, User, FileText, Calendar } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { createAppointment } from "@/lib/appointments-supabase"
 import { useToast } from "@/hooks/use-toast"
 
 interface AppointmentFormProps {
@@ -42,7 +42,7 @@ export function AppointmentForm({ onSuccess }: AppointmentFormProps) {
       }
 
       // Create appointment
-      const newAppointment = appointmentStore.create({
+      await createAppointment({
         clientName: formData.clientName.trim(),
         reason: formData.reason.trim(),
         desiredTime: formData.desiredTime,
@@ -59,8 +59,8 @@ export function AppointmentForm({ onSuccess }: AppointmentFormProps) {
       })
 
       toast({
-        title: "Turno registrado exitosamente",
-        description: `Turno para ${newAppointment.clientName} a las ${newAppointment.desiredTime}`,
+        title: "Turno reservado exitosamente",
+        description: `Turno reservado para ${formData.clientName} a las ${formData.desiredTime}`,
       })
 
       onSuccess?.()

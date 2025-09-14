@@ -1,33 +1,7 @@
 import type { Appointment, AppointmentStats } from "@/types/appointment"
 
-// Mock data store - in a real app this would be a database
-const appointments: Appointment[] = [
-  {
-    id: "1",
-    clientName: "María García",
-    reason: "Consulta general",
-    desiredTime: "10:00",
-    status: "pending",
-    createdAt: new Date("2024-01-15T08:30:00"),
-  },
-  {
-    id: "2",
-    clientName: "Juan Pérez",
-    reason: "Revisión mensual",
-    desiredTime: "11:30",
-    status: "completed",
-    createdAt: new Date("2024-01-15T09:00:00"),
-    completedAt: new Date("2024-01-15T11:45:00"),
-  },
-  {
-    id: "3",
-    clientName: "Ana López",
-    reason: "Consulta especializada",
-    desiredTime: "14:00",
-    status: "pending",
-    createdAt: new Date("2024-01-15T10:15:00"),
-  },
-]
+// Simulación temporal de datos en memoria
+const appointments: Appointment[] = [];
 
 export const appointmentStore = {
   getAll: (): Appointment[] => appointments,

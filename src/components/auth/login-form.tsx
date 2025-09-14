@@ -12,6 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuthStore } from "@/lib/auth-store"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 
+const bcrypt = require("bcryptjs");
+bcrypt.hash("admin123", 10).then(console.log);
+
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -31,7 +34,7 @@ export function LoginForm() {
       const success = await login(email, password)
 
       if (success) {
-        router.push("/admin")
+        router.push("/dashboard")
       } else {
         setError("Email o contraseña incorrectos")
       }
@@ -44,6 +47,7 @@ export function LoginForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Acceso Administrativo</CardTitle>
@@ -106,6 +110,15 @@ export function LoginForm() {
               {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-4"
+            onClick={() => router.push("/cliente")}
+          >
+            ← Regresar a reservar turno
+          </Button>
 
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
             <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">Credenciales de prueba:</p>

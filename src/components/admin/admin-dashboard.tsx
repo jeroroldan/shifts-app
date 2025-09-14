@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -19,11 +19,51 @@ import {
   Line,
 } from "recharts"
 import { Calendar, Users, CheckCircle, AlertCircle, XCircle, TrendingUp, Activity, Timer } from "lucide-react"
-import { appointmentStore } from "@/lib/appointment-store"
+import { getAppointments } from "@/lib/appointments-supabase"
 
-export function AdminDashboard() {
-  const appointments = appointmentStore.getAll()
-  const stats = appointmentStore.getStats()
+export default function AdminDashboard() {
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    getAppointments()
+      .then((data) => {
+        setAppointments(data)
+        setError(null)
+      })
+      .catch(() => setError("Error al cargar turnos"))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Calcular stats localmente
+  const stats = useMemo(() => {
+    const today = new Date()
+    const todayStr = today.toDateString()
+    let totalToday = 0, pending = 0, completed = 0
+    let totalWaitTime = 0, waitCount = 0
+    appointments.forEach((apt) => {
+      const createdAt = apt.createdAt ? (typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt) : null
+      if (createdAt && typeof createdAt.toDateString === "function" && createdAt.toDateString() === todayStr) {
+        totalToday++
+        if (apt.status === "pending") pending++
+        if (apt.status === "completed") completed++
+      }
+      // Calcular tiempo de espera promedio si hay datos
+      if (apt.status === "completed" && apt.createdAt && apt.completedAt) {
+        const start = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
+        const end = typeof apt.completedAt === "string" ? new Date(apt.completedAt) : apt.completedAt
+        const diff = (end.getTime() - start.getTime()) / 60000 // minutos
+        if (!isNaN(diff)) {
+          totalWaitTime += diff
+          waitCount++
+        }
+      }
+    })
+    const averageWaitTime = waitCount > 0 ? Math.round(totalWaitTime / waitCount) : 0
+    return { totalToday, pending, completed, averageWaitTime }
+  }, [appointments])
 
   // Calculate additional metrics
   const metrics = useMemo(() => {
@@ -31,8 +71,14 @@ export function AdminDashboard() {
     const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
-    const weeklyAppointments = appointments.filter((apt) => apt.createdAt >= thisWeek)
-    const monthlyAppointments = appointments.filter((apt) => apt.createdAt >= thisMonth)
+    const weeklyAppointments = appointments.filter((apt) => {
+      const createdAt = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
+      return createdAt >= thisWeek
+    })
+    const monthlyAppointments = appointments.filter((apt) => {
+      const createdAt = typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt
+      return createdAt >= thisMonth
+    })
 
     // Status distribution
     const statusCounts = appointments.reduce(
@@ -47,6 +93,7 @@ export function AdminDashboard() {
     const hourlyData = Array.from({ length: 11 }, (_, i) => {
       const hour = i + 8 // 8 AM to 6 PM
       const count = appointments.filter((apt) => {
+        if (!apt.desiredTime) return false
         const aptHour = Number.parseInt(apt.desiredTime.split(":")[0])
         return aptHour === hour
       }).length
@@ -59,7 +106,10 @@ export function AdminDashboard() {
     // Weekly trend (last 7 days)
     const weeklyTrend = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(today.getTime() - (6 - i) * 24 * 60 * 60 * 1000)
-      const count = appointments.filter((apt) => apt.createdAt.toDateString() === date.toDateString()).length
+      const count = appointments.filter((apt) => {
+        const createdAt = apt.createdAt ? (typeof apt.createdAt === "string" ? new Date(apt.createdAt) : apt.createdAt) : null
+        return createdAt && typeof createdAt.toDateString === "function" && createdAt.toDateString() === date.toDateString()
+      }).length
       return {
         date: date.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }),
         appointments: count,
@@ -91,6 +141,13 @@ export function AdminDashboard() {
     value: count,
     color: statusColors[status as keyof typeof statusColors],
   }))
+
+  if (loading) {
+    return <div className="p-8 text-center text-muted-foreground">Cargando datos...</div>
+  }
+  if (error) {
+    return <div className="p-8 text-center text-destructive">{error}</div>
+  }
 
   return (
     <div className="space-y-6">
@@ -191,130 +248,6 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Hourly Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribución por Horario</CardTitle>
-            <CardDescription>Turnos solicitados por hora del día</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={metrics.hourlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="appointments" fill="hsl(var(--primary))" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Estado de Turnos</CardTitle>
-            <CardDescription>Distribución por estado actual</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Weekly Trend */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tendencia Semanal</CardTitle>
-          <CardDescription>Turnos registrados en los últimos 7 días</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={metrics.weeklyTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="appointments"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={{ fill: "hsl(var(--primary))" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Actividad Reciente
-          </CardTitle>
-          <CardDescription>Últimos turnos registrados</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {appointments
-              .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-              .slice(0, 5)
-              .map((appointment) => (
-                <div key={appointment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-full">
-                      <Users className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{appointment.clientName}</p>
-                      <p className="text-sm text-muted-foreground">{appointment.reason}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        appointment.status === "completed"
-                          ? "default"
-                          : appointment.status === "pending"
-                            ? "secondary"
-                            : "destructive"
-                      }
-                    >
-                      {appointment.status === "pending"
-                        ? "Pendiente"
-                        : appointment.status === "completed"
-                          ? "Completado"
-                          : "Cancelado"}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">{appointment.desiredTime}</span>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

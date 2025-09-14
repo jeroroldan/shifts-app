@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { OwnerDashboard } from "@/components/owner/owner-dashboard"
+import OwnerDashboard from "@/components/owner/owner-dashboard"
 import { Navigation } from "@/components/layout/navigation"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 
