@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme/theme-provider"
 import { Suspense } from "react"
 import { WhatsAppFloat } from "@/components/ui/whatsapp-float"
 import { ReactQueryProvider } from "@/components/providers/react-query-provider"
+import { AuthPersistenceInjector } from "@/components/providers/auth-persistence-injector"
 import "./globals.css"
 
 const inter = Inter({
@@ -27,17 +28,14 @@ export const metadata: Metadata = {
   generator: "v0.app",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
         <ReactQueryProvider>
           <ThemeProvider defaultTheme="system">
             <Suspense fallback={null}>
+              <AuthPersistenceInjector />
               {children}
               <Toaster />
               <WhatsAppFloat />
