@@ -8,7 +8,8 @@ import { ThemeToggle } from "@/components/theme/theme-toggle"
 
 
 export function Header() {
-  const { data: user } = useAuthUser()
+  const { data } = useAuthUser()
+  const user = data as { name?: string; email: string } | null
   const router = useRouter()
 
   const handleLogout = () => {
